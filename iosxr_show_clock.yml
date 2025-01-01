@@ -1,0 +1,20 @@
+---
+- name: Retrieve current time from IOS-XR routers
+  hosts: iosxr_routers
+  gather_facts: no
+  connection: network_cli
+  tasks:
+    - name: Run show clock command
+      iosxr_command:
+        commands: show clock
+      register: clock_output
+
+    - name: Save output to CSV file
+      local_action:
+        module: copy
+        content: |
+          Hostname,Current Time
+          {% for host in play_hosts %}
+          {{ hostvars[host]['inventory_hostname'] }},{{ hostvars[host]['clock_output']['stdout'] }}
+          {% endfor %}
+        dest: ./iosxr_clock_output.csv
