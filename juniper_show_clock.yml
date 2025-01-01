@@ -1,0 +1,42 @@
+---
+- name: Retrieve current time from Juniper switches and save to CSV
+  hosts: juniper_switches
+  gather_facts: no
+  tasks:
+    - name: Run show system uptime command
+      junipernetworks.junos.junos_command:
+        commands:
+          - show system uptime
+        provider:
+          host: "{{ ansible_host }}"
+          username: "{{ ansible_user }}"
+          password: "{{ ansible_password }}"
+      register: clock_output
+
+    - name: Save output to temporary file
+      copy:
+        content: "{{ inventory_hostname }}, {{ clock_output.stdout_lines[0] }}\n"
+        dest: "/tmp/{{ inventory_hostname }}_time_tmp.txt"
+        remote_src: false
+
+    - name: Append temporary file content to all_times file
+      local_action:
+        module: lineinfile
+        path: /tmp/all_times.csv
+        create: yes
+        line: "{{ item }}"
+      with_lines: cat "/tmp/{{ inventory_hostname }}_time_tmp.txt"
+
+    - name: Remove temporary file
+      file:
+        path: "/tmp/{{ inventory_hostname }}_time_tmp.txt"
+        state: absent
+
+- name: Filter output and save final CSV
+  hosts: localhost
+  tasks:
+    - name: Run Python script to filter output
+      command: python3 filter_clock_output.py /tmp/all_times.csv /root/juniper_time_result.csv
+
+    - name: Display filtered output
+      command: cat /root/juniper_time_result.csv
