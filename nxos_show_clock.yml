@@ -1,0 +1,30 @@
+---
+- hosts: nexus
+  gather_facts: no
+  connection: local
+
+  tasks:
+    - name: RUN 'Show Clock'
+      raw: sshpass -p "{{ ansible_password }}" ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ ansible_host }} "show clock"
+      register: clock_output
+
+    - name: Filter clock output
+      set_fact:
+        filtered_clock_output: "{{ clock_output.stdout.split('\n')[0] }}"
+
+    - name: Collect clock outputs
+      set_fact:
+        clock_outputs: "{{ clock_outputs | default({}) | ansible.builtin.combine({inventory_hostname: filtered_clock_output}) }}"
+      delegate_facts: true
+
+- hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Save clock outputs to file
+      copy:
+        content: |
+          {% for host in groups['nexus'] %}
+          {{ host }} {{ hostvars[host]['clock_outputs'][host] }}
+          {% endfor %}
+        dest: ./clock_outputs.txt
+      run_once: true
