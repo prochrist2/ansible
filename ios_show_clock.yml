@@ -1,0 +1,22 @@
+---
+- name: Retrieve current time from Cisco IOS switches
+  hosts: ios_switches
+  gather_facts: no
+  connection: network_cli
+  vars:
+    ansible_network_os: ios
+  tasks:
+    - name: Run show clock command
+      ios_command:
+        commands: show clock
+      register: clock_output
+
+    - name: Save output to CSV file
+      local_action:
+        module: copy
+        content: |
+          Hostname,Current Time
+          {% for host in play_hosts %}
+          {{ hostvars[host]['inventory_hostname'] }},{{ hostvars[host]['clock_output']['stdout'] }}
+          {% endfor %}
+        dest: ./ios_clock_output.csv
